@@ -1,4 +1,4 @@
-brackets = "{()a[]}"
+syntax_input = "({a"
 
 opening_brackets = ["(", "{", "["]
 closing_brackets = [")", "}", "]"]
@@ -16,8 +16,9 @@ opening_brackets_dict = {
 }
 
 
-def backtrack_syntax(error_index, stack, bracket_to_insert, string):
-    """Function that backtracks the syntax from a given index where an error occurred.
+def backtrack_missing_open_bracket(error_index, stack, bracket_to_insert, string):
+    """Function that backtracks the syntax from a given index where an error of a missing
+    opening bracket occurred (closed bracket was found with no open bracket in the stack).
     It analyzes each point that it can insert a bracket to fix it and returns a list of
     possible correct syntaxes.
 
@@ -61,6 +62,47 @@ def backtrack_syntax(error_index, stack, bracket_to_insert, string):
     return possible_syntaxes
 
 
+def get_possible_closing_placements(lone_i, string):
+    """Function that, given the index of where a lone open bracket exists on the string,
+    gives the possible placements to fix the lone open bracket.
+
+    Args:
+        lone_i (integer): The index of the lone open bracket on the string.
+        string (string): The syntax to be fixed.
+    Returns:
+        possible_syntaxes (list of strings): A list of syntax corrections derived from
+        the original string.
+    """
+    # An empty stack to analyze where the placements are valid.
+    stack = []
+    # List with all the possible syntaxes to correct the given error.
+    possible_syntaxes = []
+    # Obtaining the correct bracket to insert to fix the error.
+    character_to_insert = closing_brackets_dict[string[lone_i]]
+    # Looping the string after the lone open bracket. The last extra iteration allows the placement
+    # of a closing bracket at the end of the string (after all characters) if possible.
+    for i in range(lone_i + 1, len(string) + 1):
+        # If the stack is empty, then the placement is valid since there are no other open brackets
+        # in between the lone open bracket and current placement.
+        if not stack:
+            possible_syntax = string[:i] + character_to_insert + string[i:]
+            possible_syntaxes.append(possible_syntax)
+        if i < len(string):
+            character = string[i]
+            # Just like the regular analysis, the stack should be popped. Validity of what
+            # character it is and what has been popped is unnecessary since the string has
+            # already been checked.
+            if character in closing_brackets:
+                if stack:
+                    stack.pop()
+                else:
+                    break
+            # Just like the regular analysis, if an opening bracket appears, stack it.
+            elif character in opening_brackets:
+                stack.append(character)
+    return possible_syntaxes
+
+
 def fix_brackets_syntax(string):
     """Function that given a string, finds the first bracket syntax error it encounters and
     outputs every single possible fix for that error.
@@ -73,9 +115,11 @@ def fix_brackets_syntax(string):
     """
     # This is a stack containing all unclosed brackets.
     bracket_stack = []
+    bracket_index_stack = []
     for index, character in enumerate(string):
         # If an opening bracket is met, then it is stacked.
         if character in opening_brackets:
+            bracket_index_stack.append(index)
             bracket_stack.append(character)
         # If a closing bracket is met, then an element of the stack must be popped.
         # If no other elements exist, then the syntax is wrong since there is a closing bracket
@@ -83,18 +127,19 @@ def fix_brackets_syntax(string):
         elif character in closing_brackets:
             if bracket_stack:
                 popped_bracket = bracket_stack.pop()
+                bracket_index_stack.pop()
                 # If the popped bracket is different than its closing counterpart, the syntax is wrong.
                 if character != closing_brackets_dict[popped_bracket]:
                     # Calling the backtracking function to find which points the opening counterpart can
                     # be added, and finding possible correct syntaxes.
-                    return backtrack_syntax(
+                    return backtrack_missing_open_bracket(
                         index, bracket_stack, opening_brackets_dict[character], string
                     )
 
             else:
                 # If the stack is empty when a closing bracket is found, then an opening counterpart must
                 # be added. Calling the backtracking function to find where that can be added.
-                return backtrack_syntax(
+                return backtrack_missing_open_bracket(
                     index, bracket_stack, opening_brackets_dict[character], string
                 )
 
@@ -104,9 +149,10 @@ def fix_brackets_syntax(string):
         # For every remaining bracket in the stack, backtrack to find where its closing counterpart
         # can be added.
         possible_syntaxes = []
-        for bracket in bracket_stack:
-            possible_syntaxes += backtrack_syntax(
-                len(string), bracket_stack, closing_brackets_dict[bracket], string
+        if bracket_stack and bracket_index_stack:
+            lone_bracket_index = bracket_index_stack.pop()
+            possible_syntaxes += get_possible_closing_placements(
+                lone_bracket_index, string
             )
         return possible_syntaxes
     return [string]
@@ -143,4 +189,5 @@ def fix_multiple_syntax_errors(string):
 
 
 # Verify a given case.
-print(fix_multiple_syntax_errors(brackets))
+print("Original syntax: ", syntax_input)
+print("Possible fixes: ", fix_multiple_syntax_errors(syntax_input))
